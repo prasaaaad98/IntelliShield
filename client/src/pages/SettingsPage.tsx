@@ -10,13 +10,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
+interface SettingsFormData {
+  suricataPath: string;
+  scanInterval: string;
+  apiKey: string;
+  [key: string]: string;
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [slackNotifications, setSlackNotifications] = useState(false);
   const [autoScan, setAutoScan] = useState(true);
   
-  const { register, handleSubmit, formState } = useForm({
+  const { register, handleSubmit, formState } = useForm<SettingsFormData>({
     defaultValues: {
       suricataPath: "/var/log/suricata/eve.json",
       scanInterval: "5",
@@ -24,7 +31,7 @@ export default function SettingsPage() {
     }
   });
   
-  const onSubmit = (data) => {
+  const onSubmit = (data: SettingsFormData) => {
     console.log(data);
     toast({
       title: "Settings updated",

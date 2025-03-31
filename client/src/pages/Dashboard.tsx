@@ -14,44 +14,44 @@ export default function Dashboard() {
   const { isConnected, lastMessage } = useSocket();
   const { toast } = useToast();
   
-  const { data: devices } = useQuery({
+  const { data: devices = [] } = useQuery<any[]>({
     queryKey: ['/api/devices'],
     retry: false
   });
   
-  const { data: alerts } = useQuery({
+  const { data: alerts = [] } = useQuery<any[]>({
     queryKey: ['/api/alerts'],
     retry: false
   });
   
-  const { data: attackLogs } = useQuery({
+  const { data: attackLogs = [] } = useQuery<any[]>({
     queryKey: ['/api/attacks/logs'],
     retry: false
   });
   
-  const { data: sensorData } = useQuery({
+  const { data: sensorData = [] } = useQuery<any[]>({
     queryKey: ['/api/sensor-data'],
     retry: false
   });
   
   // Calculate device statistics
   const deviceStats = {
-    total: devices?.length || 0,
-    online: devices?.filter((d: any) => d.status === 'online').length || 0,
-    warning: devices?.filter((d: any) => d.status === 'warning').length || 0,
-    critical: devices?.filter((d: any) => d.status === 'critical').length || 0,
+    total: devices.length,
+    online: devices.filter((d) => d.status === 'online').length,
+    warning: devices.filter((d) => d.status === 'warning').length,
+    critical: devices.filter((d) => d.status === 'critical').length,
   };
   
   // Calculate alert statistics
   const alertStats = {
-    total: alerts?.length || 0,
-    unacknowledged: alerts?.filter((a: any) => !a.acknowledged).length || 0,
-    warning: alerts?.filter((a: any) => a.severity === 'warning' && !a.acknowledged).length || 0,
-    critical: alerts?.filter((a: any) => a.severity === 'critical' && !a.acknowledged).length || 0,
+    total: alerts.length,
+    unacknowledged: alerts.filter((a) => !a.acknowledged).length,
+    warning: alerts.filter((a) => a.severity === 'warning' && !a.acknowledged).length,
+    critical: alerts.filter((a) => a.severity === 'critical' && !a.acknowledged).length,
   };
   
-  const attacksSimulated = attackLogs?.length || 0;
-  const lastAttackTime = attackLogs && attackLogs.length > 0 
+  const attacksSimulated = attackLogs.length;
+  const lastAttackTime = attackLogs.length > 0 
     ? new Date(attackLogs[0].timestamp).toLocaleTimeString() 
     : 'No attacks logged';
   

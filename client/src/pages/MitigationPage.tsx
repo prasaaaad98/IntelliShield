@@ -5,12 +5,12 @@ import { AlertCircle, Shield, CheckCircle } from "lucide-react";
 import MitigationGuidance from "@/components/MitigationGuidance";
 
 export default function MitigationPage() {
-  const { data: alerts, isLoading: alertsLoading } = useQuery({
+  const { data: alerts = [], isLoading: alertsLoading } = useQuery<any[]>({
     queryKey: ['/api/alerts'],
     retry: false
   });
   
-  const pendingAlerts = alerts?.filter(alert => !alert.acknowledged) || [];
+  const pendingAlerts = alerts.filter((alert: any) => !alert.acknowledged);
   
   return (
     <div className="container py-6 space-y-6">
@@ -65,7 +65,7 @@ export default function MitigationPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {alertsLoading ? '...' : (alerts?.length || 0) - pendingAlerts.length}
+              {alertsLoading ? '...' : alerts.length - pendingAlerts.length}
             </div>
             <p className="text-sm text-muted-foreground">
               Successfully mitigated issues

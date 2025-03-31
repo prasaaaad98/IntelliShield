@@ -123,18 +123,12 @@ function Navigation() {
       {/* Main Content */}
       <main 
         className={cn(
-          "flex-1 transition-all duration-300 ease-in-out",
+          "flex-1 transition-all duration-300 ease-in-out overflow-auto",
           isSidebarOpen ? "lg:ml-64" : "ml-0"
         )}
       >
-        <div className="h-full">
-          <div className="h-full pt-16 lg:pt-0">
-            <div className="h-full">
-              <div className="container mx-auto">
-                <Route />
-              </div>
-            </div>
-          </div>
+        <div className="h-full pt-16 lg:pt-4 pb-4">
+          <Router />
         </div>
       </main>
       
