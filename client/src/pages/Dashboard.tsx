@@ -1,32 +1,40 @@
-import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import Header from "@/components/Header";
-import StatusCard from "@/components/StatusCard";
-import SensorMonitoring from "@/components/SensorMonitoring";
-import PlcStatus from "@/components/PlcStatus";
-import AttackSimulator from "@/components/AttackSimulator";
-import SuricataAlerts from "@/components/SuricataAlerts";
-import MitigationGuidance from "@/components/MitigationGuidance";
-import NetworkVisualization from "@/components/NetworkVisualization";
-import ActivityTimeline from "@/components/ActivityTimeline";
-import Footer from "@/components/Footer";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useSocket } from "@/utils/socket";
+import { useToast } from "@/hooks/use-toast";
+
+import StatusCard from "@/components/StatusCard";
+import { Shield, AlertTriangle, Activity, Database, Zap, ArrowRight, RefreshCw } from "lucide-react";
 
 export default function Dashboard() {
-  const { lastMessage } = useSocket();
-  const [selectedFilter, setSelectedFilter] = useState<string>("All Devices");
+  const { isConnected, lastMessage } = useSocket();
+  const { toast } = useToast();
   
-  // Fetch system status data
   const { data: devices } = useQuery({
     queryKey: ['/api/devices'],
+    retry: false
   });
   
-  // Fetch alerts
   const { data: alerts } = useQuery({
     queryKey: ['/api/alerts'],
+    retry: false
   });
   
-  // Count devices by status
+  const { data: attackLogs } = useQuery({
+    queryKey: ['/api/attacks/logs'],
+    retry: false
+  });
+  
+  const { data: sensorData } = useQuery({
+    queryKey: ['/api/sensor-data'],
+    retry: false
+  });
+  
+  // Calculate device statistics
   const deviceStats = {
     total: devices?.length || 0,
     online: devices?.filter((d: any) => d.status === 'online').length || 0,
@@ -34,107 +42,221 @@ export default function Dashboard() {
     critical: devices?.filter((d: any) => d.status === 'critical').length || 0,
   };
   
-  // Count alerts by severity
+  // Calculate alert statistics
   const alertStats = {
     total: alerts?.length || 0,
-    warning: alerts?.filter((a: any) => a.severity === 'warning').length || 0,
-    critical: alerts?.filter((a: any) => a.severity === 'critical').length || 0,
+    unacknowledged: alerts?.filter((a: any) => !a.acknowledged).length || 0,
+    warning: alerts?.filter((a: any) => a.severity === 'warning' && !a.acknowledged).length || 0,
+    critical: alerts?.filter((a: any) => a.severity === 'critical' && !a.acknowledged).length || 0,
   };
   
-  // Get last attack time
-  const { data: attackLogs } = useQuery({
-    queryKey: ['/api/attacks/logs'],
-  });
-  
+  const attacksSimulated = attackLogs?.length || 0;
   const lastAttackTime = attackLogs && attackLogs.length > 0 
     ? new Date(attackLogs[0].timestamp).toLocaleTimeString() 
     : 'No attacks logged';
-
+  
+  // Calculate security score based on current system state
+  const securityScore = alertStats.critical === 0 
+    ? 85 + (deviceStats.online === deviceStats.total ? 15 : 0) 
+    : alertStats.critical === 1 
+    ? 65 
+    : 40;
+  
+  // Handle network scan
+  const handleNetworkScan = () => {
+    toast({
+      title: "Network Scan Initiated",
+      description: "Scanning network for devices..."
+    });
+    
+    // This would typically trigger an API call to scan the network
+    // For demonstration purposes, we're just showing the toast
+  };
+  
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header lastScan={new Date().toLocaleString()} />
+    <div className="container py-6 space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            <span className="bg-gradient-to-r from-primary to-blue-500 text-transparent bg-clip-text">
+              SecureICS Dashboard
+            </span>
+          </h1>
+          <p className="text-muted-foreground">
+            OT Security Monitoring and Attack Simulation Platform
+          </p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span className={`inline-block w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            <span className="text-sm text-muted-foreground">{isConnected ? 'Connected' : 'Disconnected'}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleNetworkScan}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Scan Network
+          </Button>
+        </div>
+      </div>
       
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Dashboard Header */}
-        <div className="mb-6 flex flex-wrap justify-between items-center">
-          <div className="mb-2 md:mb-0">
-            <h2 className="text-2xl font-semibold text-neutral-800">Security Dashboard</h2>
-            <p className="text-neutral-500">
-              Monitor and simulate attacks on your OT infrastructure
-            </p>
-          </div>
-          <div className="flex space-x-3">
-            <select 
-              className="bg-white border border-neutral-300 text-neutral-700 py-2 px-3 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-              value={selectedFilter}
-              onChange={(e) => setSelectedFilter(e.target.value)}
-            >
-              <option>All Devices</option>
-              <option>PLC Devices</option>
-              <option>SCADA Systems</option>
-              <option>HMI Interfaces</option>
-            </select>
-            <button className="flex items-center px-4 py-2 bg-primary text-white rounded-md shadow hover:bg-primary-light focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-              <svg className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h14a1 1 0 001-1V4a1 1 0 00-1-1H3zm2 3a1 1 0 011-1h8a1 1 0 010 2H6a1 1 0 01-1-1zm0 4a1 1 0 011-1h8a1 1 0 010 2H6a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 010 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-              View Reports
-            </button>
-          </div>
-        </div>
-        
-        {/* Status Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <StatusCard 
-            title="System Status"
-            value={deviceStats.online > 0 ? "Operational" : "Offline"}
-            status={deviceStats.online > 0 ? "success" : "critical"}
-            icon="check-circle"
-            footerText={`${deviceStats.online} devices online and protected`}
-          />
-          
-          <StatusCard 
-            title="Active Alerts"
-            value={alertStats.warning > 0 ? `${alertStats.warning} Warnings` : "No Warnings"}
-            status={alertStats.warning > 0 ? "warning" : "success"}
-            icon="alert-triangle"
-            footerText="View all alerts"
-            footerLink="#alerts"
-          />
-          
-          <StatusCard 
-            title="Attack Attempts"
-            value={alertStats.critical > 0 ? `${alertStats.critical} Critical` : "No Attacks"}
-            status={alertStats.critical > 0 ? "danger" : "success"}
-            icon="alert-circle"
-            footerText={`Last attempt: ${lastAttackTime}`}
-          />
-        </div>
-        
-        {/* Main Dashboard Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Live Sensor Data */}
-          <div className="lg:col-span-1 space-y-6">
-            <SensorMonitoring />
-            <PlcStatus />
-          </div>
-          
-          {/* Middle Column: Attack Simulator & Alerts */}
-          <div className="lg:col-span-1 space-y-6">
-            <AttackSimulator />
-            <SuricataAlerts />
-          </div>
-          
-          {/* Right Column: Mitigation & Visualization */}
-          <div className="lg:col-span-1 space-y-6">
-            <MitigationGuidance />
-            <NetworkVisualization />
-            <ActivityTimeline />
-          </div>
-        </div>
-      </main>
+      {alertStats.critical > 0 && (
+        <Alert variant="destructive" className="border border-red-200">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Critical Security Alert</AlertTitle>
+          <AlertDescription>
+            {alertStats.critical} critical security {alertStats.critical === 1 ? 'alert requires' : 'alerts require'} your immediate attention.
+            <Button variant="link" className="p-0 h-auto" asChild>
+              <Link to="/mitigation">View mitigation plans</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       
-      <Footer />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatusCard 
+          title="Devices Monitored" 
+          value={`${deviceStats.online}/${deviceStats.total}`} 
+          status={deviceStats.online === deviceStats.total ? "success" : "warning"} 
+          icon="server"
+          footerText={deviceStats.online === deviceStats.total ? "All devices online" : `${deviceStats.total - deviceStats.online} offline`}
+          footerLink="/network"
+        />
+        <StatusCard 
+          title="Active Alerts" 
+          value={alertStats.unacknowledged.toString()} 
+          status={alertStats.unacknowledged === 0 ? "success" : alertStats.critical > 0 ? "danger" : "warning"} 
+          icon="alert-triangle"
+          footerText={alertStats.critical > 0 ? `${alertStats.critical} critical alerts` : "No critical alerts"}
+          footerLink="/monitoring"
+        />
+        <StatusCard 
+          title="Attack Simulations" 
+          value={attacksSimulated.toString()} 
+          status="neutral" 
+          icon="shield"
+          footerText={`Last: ${lastAttackTime}`}
+          footerLink="/attacks"
+        />
+        <StatusCard 
+          title="Security Score" 
+          value={`${securityScore}%`} 
+          status={securityScore > 80 ? "success" : securityScore > 60 ? "warning" : "danger"} 
+          icon="shield-check"
+          footerText="Based on current threats"
+        />
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <Card className="lg:col-span-8">
+          <CardHeader>
+            <CardTitle>System Overview</CardTitle>
+            <CardDescription>
+              Quick access to key system components
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <Button variant="outline" className="w-full justify-start" asChild>
+                <Link to="/network">
+                  <Database className="mr-2 h-4 w-4" />
+                  Network Status & Visualization
+                  <ArrowRight className="ml-auto h-4 w-4" />
+                </Link>
+              </Button>
+              
+              <Button variant="outline" className="w-full justify-start" asChild>
+                <Link to="/monitoring">
+                  <Activity className="mr-2 h-4 w-4" />
+                  Sensor Monitoring & Alerts
+                  <ArrowRight className="ml-auto h-4 w-4" />
+                </Link>
+              </Button>
+              
+              <Button variant="outline" className="w-full justify-start" asChild>
+                <Link to="/attacks">
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Attack Simulation
+                  <ArrowRight className="ml-auto h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <Button variant="outline" className="w-full justify-start" asChild>
+                <Link to="/mitigation">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Security Mitigation
+                  <ArrowRight className="ml-auto h-4 w-4" />
+                </Link>
+              </Button>
+              
+              <Button variant="outline" className="w-full justify-start" asChild>
+                <Link to="/monitoring?tab=activity">
+                  <Zap className="mr-2 h-4 w-4" />
+                  Activity Timeline
+                  <ArrowRight className="ml-auto h-4 w-4" />
+                </Link>
+              </Button>
+              
+              <Button variant="outline" className="w-full justify-start" asChild>
+                <Link to="/settings">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  System Settings
+                  <ArrowRight className="ml-auto h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="lg:col-span-4">
+          <CardHeader>
+            <CardTitle>Security Status</CardTitle>
+            <CardDescription>
+              Current security posture
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Security Score</span>
+                <span className="text-sm font-medium">{securityScore}%</span>
+              </div>
+              <Progress value={securityScore} className="h-2" />
+            </div>
+            
+            <div>
+              <div className="rounded-md border px-4 py-3 font-mono text-sm mb-2">
+                <div className="flex items-center justify-between">
+                  <p>Devices Secured</p>
+                  <p className="text-right">{deviceStats.online}/{deviceStats.total}</p>
+                </div>
+              </div>
+              
+              <div className="rounded-md border px-4 py-3 font-mono text-sm mb-2">
+                <div className="flex items-center justify-between">
+                  <p>Active Threats</p>
+                  <p className="text-right">{alertStats.unacknowledged}</p>
+                </div>
+              </div>
+              
+              <div className="rounded-md border px-4 py-3 font-mono text-sm">
+                <div className="flex items-center justify-between">
+                  <p>Last Activity</p>
+                  <p className="text-right">{lastMessage ? new Date(lastMessage.data.timestamp).toLocaleTimeString() : "N/A"}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full" asChild>
+              <Link to="/mitigation">
+                <Shield className="mr-2 h-4 w-4" />
+                View Security Recommendations
+              </Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }
