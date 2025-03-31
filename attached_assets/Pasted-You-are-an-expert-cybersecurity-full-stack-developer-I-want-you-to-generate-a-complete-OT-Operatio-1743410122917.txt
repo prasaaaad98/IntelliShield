@@ -1,0 +1,126 @@
+You are an expert cybersecurity full-stack developer. I want you to generate a complete OT (Operational Technology) Attack Simulation & Mitigation System with the following specifications. The system must be modular, production-scalable, and company-deployable. Use clean, secure, and well-commented code. Generate file-wise code in blocks.
+
+---
+
+### ✅ OVERVIEW
+
+Build a full-stack system to simulate cyberattacks on OT protocols (Modbus, MQTT, OPC-UA), detect them in real-time using Suricata IDS, monitor machinery behavior using PLC/sensor data, and suggest mitigation strategies.
+
+The system should have:
+
+- A **React dashboard** to simulate attacks, show Suricata alerts, real-time sensor values, and mitigation guidance  
+- A **FastAPI backend** to execute attacks, fetch & process Suricata logs, poll PLC/sensor values, detect behavior anomalies, and store attack/alert data  
+- **Suricata IDS** configured to detect OT network anomalies (Modbus, MQTT, DNP3)  
+- **Docker + Kubernetes** for deployment, and **Ansible scripts** for automation  
+
+---
+
+### 📁 FILE STRUCTURE (GENERATE FILE-BY-FILE)
+
+OT-Attack-Simulator/
+├── backend/
+│   ├── main.py                         ← FastAPI entry point
+│   ├── config.py                       ← Configurations (DB, Suricata path, scan intervals)
+│   ├── database.py                     ← DB connection (PostgreSQL or MongoDB)
+│   ├── routes/
+│   │   ├── attacks.py                  ← API to trigger attack simulations
+│   │   ├── suricata_logs.py           ← Fetch Suricata alerts
+│   │   ├── mitigation.py              ← Provide countermeasure guidance
+│   │   ├── devices.py                 ← Real-time PLC/sensor data
+│   ├── services/
+│   │   ├── attack_simulator.py        ← Simulate Modbus/MQTT/OPC-UA attacks
+│   │   ├── suricata_monitor.py        ← Parse Suricata alerts
+│   │   ├── device_monitor.py          ← Poll sensors/PLCs (Modbus, MQTT)
+│   │   ├── behavior_analyzer.py       ← Analyze real-time data for behavioral anomalies
+│   ├── models/
+│   │   ├── attack_logs.py             ← Log of attacks triggered
+│   │   ├── alerts.py                  ← Suricata and anomaly alerts
+│   │   ├── device_snapshot.py         ← Real-time machinery values
+│   ├── utils/
+│   │   ├── network_scanner.py         ← Scan OT network for active PLCs
+│   ├── Dockerfile                     ← Backend Dockerfile
+
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Dashboard.js           ← Main dashboard view
+│   │   │   ├── AttackSimulator.js     ← UI to trigger attacks
+│   │   │   ├── LiveSensors.js         ← Display live PLC/sensor values
+│   │   │   ├── Alerts.js              ← Suricata and anomaly alerts
+│   │   │   ├── Mitigation.js          ← Shows suggested fixes
+│   │   ├── pages/
+│   │   │   ├── Home.js
+│   │   │   ├── Logs.js
+│   │   ├── App.js, api.js             ← Routing and API service
+│   ├── Dockerfile                     ← Frontend Dockerfile
+
+├── suricata/
+│   ├── suricata.yaml                  ← Config file with Modbus/MQTT/DNP3 enabled
+│   ├── rules/ot_attacks.rules         ← Custom Suricata rules for OT attack detection
+│   ├── logs/                          ← Suricata alert logs (eve.json)
+
+├── deployment/
+│   ├── docker-compose.yml             ← Run backend, frontend, Suricata
+│   ├── k8s/                           ← Kubernetes manifests
+│   │   ├── backend-deployment.yml
+│   │   ├── frontend-deployment.yml
+│   │   ├── suricata-deployment.yml
+│   ├── ansible/
+│   │   ├── playbook.yml
+│   │   ├── roles/
+│   │   │   ├── backend/
+│   │   │   ├── frontend/
+│   │   │   ├── suricata/
+
+├── .env, .gitignore
+├── README.md
+
+---
+
+### 🧠 FUNCTIONAL REQUIREMENTS
+
+1. ✅ **Attack Simulation**
+   - Simulate Modbus unauthorized writes using `pymodbus`
+   - MQTT spoofed publish using `paho-mqtt`
+   - Simulate basic DoS or MITM using `scapy`
+   - Log attack execution details
+
+2. ✅ **Suricata Integration**
+   - Monitor Modbus, DNP3, MQTT protocols
+   - Parse Suricata’s `eve.json` and expose alerts via API
+
+3. ✅ **Real-Time Machinery Monitoring**
+   - Periodically poll PLCs/sensors using Modbus/MQTT/OPC-UA
+   - Store snapshots of device state (temp, pressure, flow, coil status, etc.)
+   - Show current values on dashboard (auto-refresh/polling)
+
+4. ✅ **Behavioral Anomaly Detection**
+   - Define normal value ranges for each sensor/device
+   - If live reading deviates significantly, trigger alert
+   - Alert reason: “Boiler Overheat”, “Flow Drop with Motor ON”, etc.
+
+5. ✅ **Mitigation Guidance**
+   - Based on attack or anomaly type, return step-by-step mitigation instructions
+   - E.g., "Block IP at firewall", "Reset PLC", "Check access control settings"
+
+6. ✅ **Frontend Dashboard**
+   - Live telemetry panel (sensor values)
+   - Attack simulator controls
+   - Live alerts panel (Suricata + behavioral)
+   - Recommended mitigation section
+
+7. ✅ **Deployment & Automation**
+   - Dockerfiles for backend, frontend
+   - Compose for local, K8s manifests for production
+   - Ansible playbook to auto-deploy all components
+
+---
+
+### ⚠️ CONSTRAINTS
+
+- All attacks must be **safe simulations** (no real harm, just register overrides/fakes)
+- Suricata config must be tuned to OT protocols
+- PLC/sensor polling intervals should be configurable
+- Frontend should be usable on touchscreen devices (industrial settings)
+
+---
