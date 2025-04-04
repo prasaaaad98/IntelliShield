@@ -10,7 +10,12 @@ import {
   insertAttackLogSchema,
   insertMitigationGuidanceSchema
 } from "@shared/schema";
-import { executeAttack } from "./services/attack_simulator";
+import { 
+  executeAttack, 
+  getAttackTypes, 
+  getAttackTypeById, 
+  getCompatibleAttackTypes 
+} from "./services/attack_simulator";
 import { initSuricataMonitor } from "./services/suricata_monitor";
 import { initDeviceMonitor } from "./services/device_monitor";
 import { analyzeBehavior } from "./services/behavior_analyzer";
@@ -207,6 +212,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/attacks/logs", async (req: Request, res: Response) => {
     const logs = await storage.getAttackLogs();
     res.json(logs);
+  });
+
+  // Get all attack types
+  app.get("/api/attacks/types", async (req: Request, res: Response) => {
+    const attackTypes = getAttackTypes();
+    res.json(attackTypes);
+  });
+
+  // Get attack type by ID
+  app.get("/api/attacks/types/:id", async (req: Request, res: Response) => {
+    const attackType = getAttackTypeById(req.params.id);
+    if (!attackType) {
+      return res.status(404).json({ message: "Attack type not found" });
+    }
+    res.json(attackType);
+  });
+
+  // Get compatible attack types for a device
+  app.get("/api/devices/:id/compatible-attacks", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid device ID" });
+    }
+    
+    const device = await storage.getDevice(id);
+    if (!device) {
+      return res.status(404).json({ message: "Device not found" });
+    }
+    
+    const compatibleAttacks = await getCompatibleAttackTypes(device);
+    res.json(compatibleAttacks);
+  });
+  
+  // Get all protocols
+  app.get("/api/protocols", async (req: Request, res: Response) => {
+    const protocols = await storage.getProtocols();
+    res.json(protocols);
+  });
+  
+  // Get protocol by ID
+  app.get("/api/protocols/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid protocol ID" });
+    }
+    
+    const protocol = await storage.getProtocol(id);
+    if (!protocol) {
+      return res.status(404).json({ message: "Protocol not found" });
+    }
+    
+    res.json(protocol);
+  });
+  
+  // Create new protocol
+  app.post("/api/protocols", async (req: Request, res: Response) => {
+    try {
+      const protocol = await storage.createProtocol(req.body);
+      res.status(201).json(protocol);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid protocol data" });
+    }
+  });
+  
+  // Update protocol
+  app.patch("/api/protocols/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid protocol ID" });
+    }
+    
+    try {
+      const protocol = await storage.updateProtocol(id, req.body);
+      if (!protocol) {
+        return res.status(404).json({ message: "Protocol not found" });
+      }
+      
+      res.json(protocol);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid protocol data" });
+    }
+  });
+  
+  // Delete protocol
+  app.delete("/api/protocols/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid protocol ID" });
+    }
+    
+    const success = await storage.deleteProtocol(id);
+    if (!success) {
+      return res.status(404).json({ message: "Protocol not found or could not be deleted" });
+    }
+    
+    res.status(204).end();
+  });
+  
+  // Get all device types
+  app.get("/api/device-types", async (req: Request, res: Response) => {
+    const deviceTypes = await storage.getDeviceTypes();
+    res.json(deviceTypes);
+  });
+  
+  // Get device type by ID
+  app.get("/api/device-types/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid device type ID" });
+    }
+    
+    const deviceType = await storage.getDeviceType(id);
+    if (!deviceType) {
+      return res.status(404).json({ message: "Device type not found" });
+    }
+    
+    res.json(deviceType);
+  });
+  
+  // Create new device type
+  app.post("/api/device-types", async (req: Request, res: Response) => {
+    try {
+      const deviceType = await storage.createDeviceType(req.body);
+      res.status(201).json(deviceType);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid device type data" });
+    }
+  });
+  
+  // Update device type
+  app.patch("/api/device-types/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid device type ID" });
+    }
+    
+    try {
+      const deviceType = await storage.updateDeviceType(id, req.body);
+      if (!deviceType) {
+        return res.status(404).json({ message: "Device type not found" });
+      }
+      
+      res.json(deviceType);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid device type data" });
+    }
+  });
+  
+  // Delete device type
+  app.delete("/api/device-types/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid device type ID" });
+    }
+    
+    const success = await storage.deleteDeviceType(id);
+    if (!success) {
+      return res.status(404).json({ message: "Device type not found or could not be deleted" });
+    }
+    
+    res.status(204).end();
   });
 
   // Scan network for devices

@@ -5,8 +5,14 @@ import {
   alerts,
   attackLogs,
   mitigationGuidance,
+  supportedProtocols,
+  deviceTypes,
   type User,
   type InsertUser,
+  type Protocol,
+  type InsertProtocol,
+  type DeviceType,
+  type InsertDeviceType,
   type Device,
   type InsertDevice,
   type SensorData,
@@ -27,11 +33,29 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
+  // Protocol methods
+  getProtocols(): Promise<Protocol[]>;
+  getProtocol(id: number): Promise<Protocol | undefined>;
+  getProtocolByName(name: string): Promise<Protocol | undefined>;
+  createProtocol(protocol: InsertProtocol): Promise<Protocol>;
+  updateProtocol(id: number, protocol: Partial<InsertProtocol>): Promise<Protocol | undefined>;
+  deleteProtocol(id: number): Promise<boolean>;
+
+  // Device type methods
+  getDeviceTypes(): Promise<DeviceType[]>;
+  getDeviceType(id: number): Promise<DeviceType | undefined>;
+  getDeviceTypeByName(name: string): Promise<DeviceType | undefined>;
+  createDeviceType(deviceType: InsertDeviceType): Promise<DeviceType>;
+  updateDeviceType(id: number, deviceType: Partial<InsertDeviceType>): Promise<DeviceType | undefined>;
+  deleteDeviceType(id: number): Promise<boolean>;
+
   // Device methods
   getDevices(): Promise<Device[]>;
   getDevice(id: number): Promise<Device | undefined>;
   createDevice(device: InsertDevice): Promise<Device>;
+  updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined>;
   updateDeviceStatus(id: number, status: string): Promise<Device | undefined>;
+  deleteDevice(id: number): Promise<boolean>;
 
   // Sensor data methods
   getSensorData(deviceId?: number): Promise<SensorData[]>;
@@ -53,6 +77,7 @@ export interface IStorage {
   getMitigationGuidance(alertType: string): Promise<MitigationGuidance | undefined>;
   getAllMitigationGuidance(): Promise<MitigationGuidance[]>;
   createMitigationGuidance(guidance: InsertMitigationGuidance): Promise<MitigationGuidance>;
+  updateMitigationGuidance(id: number, guidance: Partial<InsertMitigationGuidance>): Promise<MitigationGuidance | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -70,6 +95,82 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+  
+  // Protocol methods
+  async getProtocols(): Promise<Protocol[]> {
+    return db.select().from(supportedProtocols);
+  }
+  
+  async getProtocol(id: number): Promise<Protocol | undefined> {
+    const [protocol] = await db.select().from(supportedProtocols).where(eq(supportedProtocols.id, id));
+    return protocol;
+  }
+  
+  async getProtocolByName(name: string): Promise<Protocol | undefined> {
+    const [protocol] = await db.select().from(supportedProtocols).where(eq(supportedProtocols.name, name));
+    return protocol;
+  }
+  
+  async createProtocol(protocol: InsertProtocol): Promise<Protocol> {
+    const [createdProtocol] = await db.insert(supportedProtocols).values(protocol).returning();
+    return createdProtocol;
+  }
+  
+  async updateProtocol(id: number, protocol: Partial<InsertProtocol>): Promise<Protocol | undefined> {
+    const [updatedProtocol] = await db.update(supportedProtocols)
+      .set(protocol)
+      .where(eq(supportedProtocols.id, id))
+      .returning();
+    return updatedProtocol;
+  }
+  
+  async deleteProtocol(id: number): Promise<boolean> {
+    try {
+      await db.delete(supportedProtocols).where(eq(supportedProtocols.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting protocol:", error);
+      return false;
+    }
+  }
+  
+  // Device type methods
+  async getDeviceTypes(): Promise<DeviceType[]> {
+    return db.select().from(deviceTypes);
+  }
+  
+  async getDeviceType(id: number): Promise<DeviceType | undefined> {
+    const [deviceType] = await db.select().from(deviceTypes).where(eq(deviceTypes.id, id));
+    return deviceType;
+  }
+  
+  async getDeviceTypeByName(name: string): Promise<DeviceType | undefined> {
+    const [deviceType] = await db.select().from(deviceTypes).where(eq(deviceTypes.name, name));
+    return deviceType;
+  }
+  
+  async createDeviceType(deviceType: InsertDeviceType): Promise<DeviceType> {
+    const [createdDeviceType] = await db.insert(deviceTypes).values(deviceType).returning();
+    return createdDeviceType;
+  }
+  
+  async updateDeviceType(id: number, deviceType: Partial<InsertDeviceType>): Promise<DeviceType | undefined> {
+    const [updatedDeviceType] = await db.update(deviceTypes)
+      .set(deviceType)
+      .where(eq(deviceTypes.id, id))
+      .returning();
+    return updatedDeviceType;
+  }
+  
+  async deleteDeviceType(id: number): Promise<boolean> {
+    try {
+      await db.delete(deviceTypes).where(eq(deviceTypes.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting device type:", error);
+      return false;
+    }
   }
 
   // Device methods
@@ -97,6 +198,24 @@ export class DatabaseStorage implements IStorage {
       .where(eq(devices.id, id))
       .returning();
     return device;
+  }
+  
+  async updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined> {
+    const [updatedDevice] = await db.update(devices)
+      .set(device)
+      .where(eq(devices.id, id))
+      .returning();
+    return updatedDevice;
+  }
+  
+  async deleteDevice(id: number): Promise<boolean> {
+    try {
+      await db.delete(devices).where(eq(devices.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      return false;
+    }
   }
 
   // Sensor data methods
@@ -214,6 +333,14 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return guidance;
   }
+  
+  async updateMitigationGuidance(id: number, guidance: Partial<InsertMitigationGuidance>): Promise<MitigationGuidance | undefined> {
+    const [updatedGuidance] = await db.update(mitigationGuidance)
+      .set(guidance)
+      .where(eq(mitigationGuidance.id, id))
+      .returning();
+    return updatedGuidance;
+  }
 
   // Initialize the database with sample data
   async initializeSampleData() {
@@ -222,74 +349,281 @@ export class DatabaseStorage implements IStorage {
     if (existingDevices.length > 0) {
       return;
     }
+    
+    // Initialize supported protocols
+    await db.insert(supportedProtocols).values([
+      {
+        name: "modbus_tcp",
+        displayName: "Modbus TCP/IP",
+        description: "Industry standard protocol for connecting industrial electronic devices.",
+        defaultPort: 502,
+        capabilities: {
+          read: true,
+          write: true,
+          subscribe: false
+        },
+        parameters: {
+          registerTypes: ["Coil", "Discrete Input", "Input Register", "Holding Register"],
+          functions: ["Read Coils", "Read Discrete Inputs", "Read Holding Registers", "Read Input Registers", "Write Single Coil", "Write Single Register"]
+        },
+        isEnabled: true
+      },
+      {
+        name: "modbus_rtu",
+        displayName: "Modbus RTU",
+        description: "Serial version of the Modbus protocol, typically over RS485 or RS232.",
+        defaultPort: 0,
+        capabilities: {
+          read: true,
+          write: true,
+          subscribe: false
+        },
+        parameters: {
+          registerTypes: ["Coil", "Discrete Input", "Input Register", "Holding Register"],
+          baudRate: [9600, 19200, 38400, 57600, 115200]
+        },
+        isEnabled: true
+      },
+      {
+        name: "mqtt",
+        displayName: "MQTT",
+        description: "Lightweight messaging protocol for small sensors and mobile devices.",
+        defaultPort: 1883,
+        capabilities: {
+          read: true,
+          write: true,
+          subscribe: true
+        },
+        parameters: {
+          qos: [0, 1, 2],
+          retain: [true, false]
+        },
+        isEnabled: true
+      },
+      {
+        name: "opc_ua",
+        displayName: "OPC Unified Architecture",
+        description: "Platform-independent service-oriented architecture for industrial automation.",
+        defaultPort: 4840,
+        capabilities: {
+          read: true,
+          write: true,
+          subscribe: true,
+          methods: true
+        },
+        parameters: {
+          security: ["None", "Sign", "SignAndEncrypt"],
+          authentication: ["Anonymous", "Username", "Certificate"]
+        },
+        isEnabled: true
+      },
+      {
+        name: "ethernet_ip",
+        displayName: "EtherNet/IP",
+        description: "Common industrial protocol adaptation for Ethernet networks.",
+        defaultPort: 44818,
+        capabilities: {
+          read: true,
+          write: true,
+          subscribe: false
+        },
+        parameters: {
+          cip: ["Explicit Messaging", "Implicit Messaging"]
+        },
+        isEnabled: true
+      },
+      {
+        name: "dnp3",
+        displayName: "DNP3",
+        description: "Distributed Network Protocol used in utility automation systems.",
+        defaultPort: 20000,
+        capabilities: {
+          read: true,
+          write: true,
+          subscribe: false,
+          events: true
+        },
+        parameters: {
+          points: ["Binary Input", "Binary Output", "Analog Input", "Analog Output", "Counter"]
+        },
+        isEnabled: true
+      }
+    ]);
+    
+    // Initialize device types
+    await db.insert(deviceTypes).values([
+      {
+        name: "plc",
+        displayName: "Programmable Logic Controller",
+        description: "Industrial digital computer for control of manufacturing processes.",
+        category: "Controller",
+        compatibleProtocols: ["modbus_tcp", "modbus_rtu", "ethernet_ip", "opc_ua"],
+        parameterTemplates: {
+          safetyParameters: ["Maximum Process Value", "Minimum Process Value", "Emergency Stop Trigger"]
+        },
+        icon: "cpu"
+      },
+      {
+        name: "rtu",
+        displayName: "Remote Terminal Unit",
+        description: "Microprocessor-controlled device that interfaces with physical objects in the environment.",
+        category: "Controller",
+        compatibleProtocols: ["modbus_tcp", "modbus_rtu", "dnp3"],
+        parameterTemplates: {
+          remoteConfig: ["Polling Rate", "Timeout", "Retry Count"]
+        },
+        icon: "server"
+      },
+      {
+        name: "sensor",
+        displayName: "Sensor/Transmitter",
+        description: "Device that detects and responds to input from the physical environment.",
+        category: "Field Device",
+        compatibleProtocols: ["modbus_tcp", "mqtt", "opc_ua"],
+        parameterTemplates: {
+          calibration: ["Zero Offset", "Span", "Units"],
+          limits: ["Low Alarm", "High Alarm", "Rate of Change Alarm"]
+        },
+        icon: "activity"
+      },
+      {
+        name: "vfd",
+        displayName: "Variable Frequency Drive",
+        description: "Type of motor controller that drives an electric motor by varying the frequency of the power supplied.",
+        category: "Power Equipment",
+        compatibleProtocols: ["modbus_tcp", "ethernet_ip"],
+        parameterTemplates: {
+          motorParams: ["Current Limit", "Acceleration Time", "Deceleration Time"]
+        },
+        icon: "zap"
+      },
+      {
+        name: "hmi",
+        displayName: "Human Machine Interface",
+        description: "User interface that connects operators to controllers in manufacturing environments.",
+        category: "Operator Interface",
+        compatibleProtocols: ["modbus_tcp", "opc_ua"],
+        parameterTemplates: {},
+        icon: "monitor"
+      },
+      {
+        name: "gateway",
+        displayName: "Protocol Gateway",
+        description: "Converts between different industrial protocols for seamless communication.",
+        category: "Network",
+        compatibleProtocols: ["modbus_tcp", "modbus_rtu", "mqtt", "opc_ua", "ethernet_ip", "dnp3"],
+        parameterTemplates: {
+          network: ["Conversion Mode", "Buffering"]
+        },
+        icon: "shuffle"
+      }
+    ]);
 
     // Sample devices
     await db.insert(devices).values([
       {
         name: "Main Control PLC",
-        type: "PLC",
-        protocol: "Modbus",
+        type: "plc",
+        protocol: "modbus_tcp",
         ipAddress: "192.168.1.10",
         port: 502,
         status: "online",
         lastSeen: new Date(),
         acceptableRanges: {},
-        metadata: {},
+        metadata: {
+          registers: {
+            "40001": { description: "Process setpoint", unit: "°C", readOnly: false },
+            "40002": { description: "Current temperature", unit: "°C", readOnly: true },
+            "00001": { description: "Emergency stop", readOnly: false }
+          }
+        },
       },
       {
         name: "Process Control PLC",
-        type: "PLC",
-        protocol: "Modbus",
+        type: "plc",
+        protocol: "modbus_tcp",
         ipAddress: "192.168.1.11",
         port: 502,
         status: "online",
         lastSeen: new Date(),
         acceptableRanges: {},
-        metadata: {},
+        metadata: {
+          registers: {
+            "40001": { description: "Pressure setpoint", unit: "PSI", readOnly: false },
+            "40002": { description: "Current pressure", unit: "PSI", readOnly: true },
+            "00002": { description: "Valve control", readOnly: false }
+          }
+        },
       },
       {
         name: "Auxiliary Systems PLC",
-        type: "PLC",
-        protocol: "OPC-UA",
+        type: "plc",
+        protocol: "opc_ua",
         ipAddress: "192.168.1.12",
         port: 4840,
         status: "warning",
         lastSeen: new Date(),
         acceptableRanges: {},
-        metadata: {},
+        metadata: {
+          nodes: {
+            "ns=1;s=Temperature": { description: "Ambient temperature", unit: "°C" },
+            "ns=1;s=Humidity": { description: "Ambient humidity", unit: "%" },
+            "ns=1;s=Pressure": { description: "Ambient pressure", unit: "hPa" }
+          }
+        },
       },
       {
         name: "Safety Systems PLC",
-        type: "PLC",
-        protocol: "Modbus",
+        type: "plc",
+        protocol: "modbus_tcp",
         ipAddress: "192.168.1.13",
         port: 502,
         status: "online",
         lastSeen: new Date(),
         acceptableRanges: {},
-        metadata: {},
+        metadata: {
+          registers: {
+            "40001": { description: "Safety limit high", unit: "°C", readOnly: false },
+            "40002": { description: "Safety limit low", unit: "°C", readOnly: false },
+            "00001": { description: "Emergency shutdown", readOnly: false }
+          }
+        },
       },
       {
         name: "Boiler Pressure Sensor",
-        type: "Sensor",
-        protocol: "MQTT",
+        type: "sensor",
+        protocol: "mqtt",
         ipAddress: "192.168.1.20",
         port: 1883,
         status: "online",
         lastSeen: new Date(),
         acceptableRanges: { min: 55, max: 85 },
-        metadata: { unit: "PSI" },
+        metadata: { 
+          unit: "PSI",
+          topics: {
+            "sensors/boiler/pressure": { description: "Current pressure reading", qos: 1 },
+            "sensors/boiler/status": { description: "Sensor status", qos: 1 },
+            "sensors/boiler/command": { description: "Control commands", qos: 2 }
+          }
+        },
       },
       {
         name: "Temperature Sensor",
-        type: "Sensor",
-        protocol: "MQTT",
+        type: "sensor",
+        protocol: "mqtt",
         ipAddress: "192.168.1.21",
         port: 1883,
         status: "warning",
         lastSeen: new Date(),
         acceptableRanges: { min: 60, max: 90 },
-        metadata: { unit: "°C" },
+        metadata: { 
+          unit: "°C",
+          topics: {
+            "sensors/temperature/zone1": { description: "Zone 1 temperature", qos: 0 },
+            "sensors/temperature/zone2": { description: "Zone 2 temperature", qos: 0 },
+            "sensors/temperature/command": { description: "Control commands", qos: 1 }
+          }
+        },
       }
     ]);
 
