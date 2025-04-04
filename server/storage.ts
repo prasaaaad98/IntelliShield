@@ -18,6 +18,8 @@ import {
   type MitigationGuidance,
   type InsertMitigationGuidance,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -53,36 +55,176 @@ export interface IStorage {
   createMitigationGuidance(guidance: InsertMitigationGuidance): Promise<MitigationGuidance>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private devices: Map<number, Device>;
-  private sensorData: Map<number, SensorData>;
-  private alerts: Map<number, Alert>;
-  private attackLogs: Map<number, AttackLog>;
-  private mitigationGuidance: Map<number, MitigationGuidance>;
-  
-  private currentUserIds = 1;
-  private currentDeviceIds = 1;
-  private currentSensorDataIds = 1;
-  private currentAlertIds = 1;
-  private currentAttackLogIds = 1;
-  private currentMitigationGuidanceIds = 1;
-
-  constructor() {
-    this.users = new Map();
-    this.devices = new Map();
-    this.sensorData = new Map();
-    this.alerts = new Map();
-    this.attackLogs = new Map();
-    this.mitigationGuidance = new Map();
-    
-    // Initialize with sample data
-    this.initializeSampleData();
+export class DatabaseStorage implements IStorage {
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
-  private initializeSampleData() {
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  // Device methods
+  async getDevices(): Promise<Device[]> {
+    return db.select().from(devices);
+  }
+
+  async getDevice(id: number): Promise<Device | undefined> {
+    const [device] = await db.select().from(devices).where(eq(devices.id, id));
+    return device;
+  }
+
+  async createDevice(insertDevice: InsertDevice): Promise<Device> {
+    const now = new Date();
+    const [device] = await db.insert(devices)
+      .values({ ...insertDevice, lastSeen: now })
+      .returning();
+    return device;
+  }
+
+  async updateDeviceStatus(id: number, status: string): Promise<Device | undefined> {
+    const now = new Date();
+    const [device] = await db.update(devices)
+      .set({ status, lastSeen: now })
+      .where(eq(devices.id, id))
+      .returning();
+    return device;
+  }
+
+  // Sensor data methods
+  async getSensorData(deviceId?: number): Promise<SensorData[]> {
+    if (deviceId === undefined) {
+      return db.select().from(sensorData).orderBy(desc(sensorData.timestamp));
+    }
+    return db.select()
+      .from(sensorData)
+      .where(eq(sensorData.deviceId, deviceId))
+      .orderBy(desc(sensorData.timestamp));
+  }
+
+  async getLatestSensorData(deviceId?: number): Promise<SensorData[]> {
+    // Get all data first
+    let results: SensorData[];
+    
+    if (deviceId !== undefined) {
+      results = await db.select().from(sensorData)
+        .where(eq(sensorData.deviceId, deviceId))
+        .orderBy(desc(sensorData.timestamp));
+    } else {
+      results = await db.select().from(sensorData)
+        .orderBy(desc(sensorData.timestamp));
+    }
+    
+    // Group by device and parameter name, get latest for each
+    const groupedByDeviceAndParameter = new Map<string, SensorData>();
+    
+    for (const data of results) {
+      const key = `${data.deviceId}-${data.parameterName}`;
+      const existing = groupedByDeviceAndParameter.get(key);
+      
+      if (!existing) {
+        groupedByDeviceAndParameter.set(key, data);
+      }
+    }
+    
+    return Array.from(groupedByDeviceAndParameter.values());
+  }
+
+  async createSensorData(insertData: InsertSensorData): Promise<SensorData> {
+    const now = new Date();
+    const [data] = await db.insert(sensorData)
+      .values({ ...insertData, timestamp: now })
+      .returning();
+    return data;
+  }
+
+  // Alert methods
+  async getAlerts(acknowledged?: boolean): Promise<Alert[]> {
+    if (acknowledged === undefined) {
+      return db.select().from(alerts).orderBy(desc(alerts.timestamp));
+    }
+    return db.select()
+      .from(alerts)
+      .where(eq(alerts.acknowledged, acknowledged))
+      .orderBy(desc(alerts.timestamp));
+  }
+
+  async getAlert(id: number): Promise<Alert | undefined> {
+    const [alert] = await db.select().from(alerts).where(eq(alerts.id, id));
+    return alert;
+  }
+
+  async createAlert(insertAlert: InsertAlert): Promise<Alert> {
+    const now = new Date();
+    const [alert] = await db.insert(alerts)
+      .values({ ...insertAlert, timestamp: now, acknowledged: false })
+      .returning();
+    return alert;
+  }
+
+  async acknowledgeAlert(id: number): Promise<Alert | undefined> {
+    const [alert] = await db.update(alerts)
+      .set({ acknowledged: true })
+      .where(eq(alerts.id, id))
+      .returning();
+    return alert;
+  }
+
+  // Attack log methods
+  async getAttackLogs(): Promise<AttackLog[]> {
+    return db.select().from(attackLogs).orderBy(desc(attackLogs.timestamp));
+  }
+
+  async getAttackLog(id: number): Promise<AttackLog | undefined> {
+    const [log] = await db.select().from(attackLogs).where(eq(attackLogs.id, id));
+    return log;
+  }
+
+  async createAttackLog(insertLog: InsertAttackLog): Promise<AttackLog> {
+    const now = new Date();
+    const [log] = await db.insert(attackLogs)
+      .values({ ...insertLog, timestamp: now })
+      .returning();
+    return log;
+  }
+
+  // Mitigation guidance methods
+  async getMitigationGuidance(alertType: string): Promise<MitigationGuidance | undefined> {
+    const [guidance] = await db.select()
+      .from(mitigationGuidance)
+      .where(eq(mitigationGuidance.alertType, alertType));
+    return guidance;
+  }
+
+  async getAllMitigationGuidance(): Promise<MitigationGuidance[]> {
+    return db.select().from(mitigationGuidance);
+  }
+
+  async createMitigationGuidance(insertGuidance: InsertMitigationGuidance): Promise<MitigationGuidance> {
+    const [guidance] = await db.insert(mitigationGuidance)
+      .values(insertGuidance)
+      .returning();
+    return guidance;
+  }
+
+  // Initialize the database with sample data
+  async initializeSampleData() {
+    // Check if we already have data to avoid duplicate initialization
+    const existingDevices = await this.getDevices();
+    if (existingDevices.length > 0) {
+      return;
+    }
+
     // Sample devices
-    const devices: InsertDevice[] = [
+    await db.insert(devices).values([
       {
         name: "Main Control PLC",
         type: "PLC",
@@ -90,6 +232,7 @@ export class MemStorage implements IStorage {
         ipAddress: "192.168.1.10",
         port: 502,
         status: "online",
+        lastSeen: new Date(),
         acceptableRanges: {},
         metadata: {},
       },
@@ -100,6 +243,7 @@ export class MemStorage implements IStorage {
         ipAddress: "192.168.1.11",
         port: 502,
         status: "online",
+        lastSeen: new Date(),
         acceptableRanges: {},
         metadata: {},
       },
@@ -110,6 +254,7 @@ export class MemStorage implements IStorage {
         ipAddress: "192.168.1.12",
         port: 4840,
         status: "warning",
+        lastSeen: new Date(),
         acceptableRanges: {},
         metadata: {},
       },
@@ -120,6 +265,7 @@ export class MemStorage implements IStorage {
         ipAddress: "192.168.1.13",
         port: 502,
         status: "online",
+        lastSeen: new Date(),
         acceptableRanges: {},
         metadata: {},
       },
@@ -130,6 +276,7 @@ export class MemStorage implements IStorage {
         ipAddress: "192.168.1.20",
         port: 1883,
         status: "online",
+        lastSeen: new Date(),
         acceptableRanges: { min: 55, max: 85 },
         metadata: { unit: "PSI" },
       },
@@ -140,22 +287,22 @@ export class MemStorage implements IStorage {
         ipAddress: "192.168.1.21",
         port: 1883,
         status: "warning",
+        lastSeen: new Date(),
         acceptableRanges: { min: 60, max: 90 },
         metadata: { unit: "°C" },
       }
-    ];
-
-    // Add devices
-    devices.forEach(device => this.createDevice(device));
+    ]);
 
     // Add sample alerts
-    const sampleAlerts: InsertAlert[] = [
+    await db.insert(alerts).values([
       {
         severity: "critical",
         title: "Modbus Write to Restricted Register",
         description: "Unauthorized write attempt to safety-critical register detected from 192.168.1.45.",
         source: "Suricata",
         deviceId: 1,
+        timestamp: new Date(),
+        acknowledged: false,
         rawData: {
           raw: "[2023-06-10T10:42:33] [**] [1:1000001:1] MODBUS: Unauthorized write to register 40001 [**] [Classification: Potentially Bad Traffic] [Priority: 1] {TCP} 192.168.1.45:49152 -> 192.168.1.10:502"
         }
@@ -166,16 +313,16 @@ export class MemStorage implements IStorage {
         description: "Unusual MQTT subscription pattern detected from unregistered client ID.",
         source: "Suricata",
         deviceId: 5,
+        timestamp: new Date(),
+        acknowledged: false,
         rawData: {
           raw: "[2023-06-10T10:36:18] [**] [1:1000015:1] MQTT: Suspicious subscription to system/# topic [**] [Classification: Potentially Bad Traffic] [Priority: 2] {TCP} 192.168.1.87:56324 -> 192.168.1.20:1883"
         }
       }
-    ];
-    
-    sampleAlerts.forEach(alert => this.createAlert(alert));
+    ]);
 
     // Add mitigation guidance
-    const mitigationGuidances: InsertMitigationGuidance[] = [
+    await db.insert(mitigationGuidance).values([
       {
         alertType: "Modbus Write to Restricted Register",
         title: "Critical: Modbus Write to Restricted Register",
@@ -200,171 +347,8 @@ export class MemStorage implements IStorage {
         ],
         severity: "warning"
       }
-    ];
-    
-    mitigationGuidances.forEach(guidance => this.createMitigationGuidance(guidance));
-  }
-
-  // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserIds++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
-  }
-
-  // Device methods
-  async getDevices(): Promise<Device[]> {
-    return Array.from(this.devices.values());
-  }
-
-  async getDevice(id: number): Promise<Device | undefined> {
-    return this.devices.get(id);
-  }
-
-  async createDevice(insertDevice: InsertDevice): Promise<Device> {
-    const id = this.currentDeviceIds++;
-    const device: Device = { 
-      ...insertDevice, 
-      id, 
-      lastSeen: new Date() 
-    };
-    this.devices.set(id, device);
-    return device;
-  }
-
-  async updateDeviceStatus(id: number, status: string): Promise<Device | undefined> {
-    const device = this.devices.get(id);
-    if (!device) return undefined;
-    
-    const updatedDevice = { 
-      ...device, 
-      status, 
-      lastSeen: new Date() 
-    };
-    this.devices.set(id, updatedDevice);
-    return updatedDevice;
-  }
-
-  // Sensor data methods
-  async getSensorData(deviceId?: number): Promise<SensorData[]> {
-    const allData = Array.from(this.sensorData.values());
-    if (deviceId === undefined) return allData;
-    return allData.filter(data => data.deviceId === deviceId);
-  }
-
-  async getLatestSensorData(deviceId?: number): Promise<SensorData[]> {
-    const allData = await this.getSensorData(deviceId);
-    
-    // Group by device and parameter name, then get latest for each
-    const groupedByDeviceAndParameter = new Map<string, SensorData>();
-    
-    for (const data of allData) {
-      const key = `${data.deviceId}-${data.parameterName}`;
-      const existing = groupedByDeviceAndParameter.get(key);
-      
-      if (!existing || new Date(data.timestamp) > new Date(existing.timestamp)) {
-        groupedByDeviceAndParameter.set(key, data);
-      }
-    }
-    
-    return Array.from(groupedByDeviceAndParameter.values());
-  }
-
-  async createSensorData(insertData: InsertSensorData): Promise<SensorData> {
-    const id = this.currentSensorDataIds++;
-    const data: SensorData = { 
-      ...insertData, 
-      id, 
-      timestamp: new Date() 
-    };
-    this.sensorData.set(id, data);
-    return data;
-  }
-
-  // Alert methods
-  async getAlerts(acknowledged?: boolean): Promise<Alert[]> {
-    const allAlerts = Array.from(this.alerts.values());
-    
-    if (acknowledged === undefined) return allAlerts;
-    return allAlerts.filter(alert => alert.acknowledged === acknowledged);
-  }
-
-  async getAlert(id: number): Promise<Alert | undefined> {
-    return this.alerts.get(id);
-  }
-
-  async createAlert(insertAlert: InsertAlert): Promise<Alert> {
-    const id = this.currentAlertIds++;
-    const alert: Alert = { 
-      ...insertAlert, 
-      id, 
-      timestamp: new Date(),
-      acknowledged: false
-    };
-    this.alerts.set(id, alert);
-    return alert;
-  }
-
-  async acknowledgeAlert(id: number): Promise<Alert | undefined> {
-    const alert = this.alerts.get(id);
-    if (!alert) return undefined;
-    
-    const updatedAlert = { ...alert, acknowledged: true };
-    this.alerts.set(id, updatedAlert);
-    return updatedAlert;
-  }
-
-  // Attack log methods
-  async getAttackLogs(): Promise<AttackLog[]> {
-    return Array.from(this.attackLogs.values());
-  }
-
-  async getAttackLog(id: number): Promise<AttackLog | undefined> {
-    return this.attackLogs.get(id);
-  }
-
-  async createAttackLog(insertLog: InsertAttackLog): Promise<AttackLog> {
-    const id = this.currentAttackLogIds++;
-    const log: AttackLog = { 
-      ...insertLog, 
-      id, 
-      timestamp: new Date() 
-    };
-    this.attackLogs.set(id, log);
-    return log;
-  }
-
-  // Mitigation guidance methods
-  async getMitigationGuidance(alertType: string): Promise<MitigationGuidance | undefined> {
-    return Array.from(this.mitigationGuidance.values()).find(
-      guidance => guidance.alertType === alertType
-    );
-  }
-
-  async getAllMitigationGuidance(): Promise<MitigationGuidance[]> {
-    return Array.from(this.mitigationGuidance.values());
-  }
-
-  async createMitigationGuidance(insertGuidance: InsertMitigationGuidance): Promise<MitigationGuidance> {
-    const id = this.currentMitigationGuidanceIds++;
-    const guidance: MitigationGuidance = { 
-      ...insertGuidance, 
-      id 
-    };
-    this.mitigationGuidance.set(id, guidance);
-    return guidance;
+    ]);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
