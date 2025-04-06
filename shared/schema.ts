@@ -174,3 +174,16 @@ export type MitigationGuidance = typeof mitigationGuidance.$inferSelect;
 export type InsertMitigationGuidance = z.infer<typeof insertMitigationGuidanceSchema>;
 
 export type AttackType = z.infer<typeof attackTypeSchema>;
+
+console.log("✅ Schema loaded");
+
+console.log(Object.keys({
+  users,
+  supportedProtocols,
+  deviceTypes,
+  devices,
+  sensorData,
+  alerts,
+  attackLogs,
+  mitigationGuidance,
+}));
